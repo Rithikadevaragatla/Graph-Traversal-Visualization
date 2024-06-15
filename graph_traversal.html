@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Graph Traversal Visualization</title>
+<style>
+  #container {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+  #graph-container {
+    flex: 1;
+    margin-right: 20px;
+  }
+  #queue-container, #stack-container {
+    flex: 1;
+    margin-top: 50px;
+  }
+  .queue, .stack {
+    margin-bottom: 20px;
+  }
+  .queue-title, .stack-title {
+    font-weight: bold;
+    margin-bottom: 5px;
+  }
+  .queue-element, .stack-element {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    align-items: center;
+  }
+  .queue-element span, .stack-element span {
+    width: 40px;
+    height: 40px;
+    border: 1px solid black;
+    margin-right: 5px;
+    margin-bottom: 5px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  .queue-visualization, .stack-visualization {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 10px;
+    width: 300px;
+  }
+  .queue-visualization span, .stack-visualization span {
+    width: 20px;
+    height: 20px;
+    border: 1px solid black;
+    margin-right: 3px;
+    margin-bottom: 3px;
+    transition: background-color 0.3s ease-in-out;
+  }
+  #visitedQueue .queue-element, #visitedStack .stack-element {
+    width: 60px;
+    height: 60px;
+    border: 1px solid black;
+    margin-right: 5px;
+    margin-bottom: 5px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 18px;
+  }
+</style>
+</head>
+<body>
+<h1>Graph Traversal Visualization</h1>
+<label for="traversalType">Select Traversal Type:</label>
+<select id="traversalType" onchange="switchTraversal()">
+  <option value="bfs">BFS Traversal</option>
+  <option value="dfs">DFS Traversal</option>
+</select>
+<div id="bfsContent">
+  <h2>BFS Traversal Visualization</h2>
+  <label for="vertexInputBFS">Enter Vertices (comma separated):</label>
+  <input type="text" id="vertexInputBFS">
+  <button onclick="createGraph('bfs')">Create Graph</button>
+  <label for="startVertexInputBFS">Select Start Vertex:</label>
+  <select id="startVertexInputBFS" onchange="resetGraph('bfs')"></select>
+  <button onclick="startBFS()">Start BFS Traversal</button>
+  <div id="container">
+    <div id="graph-container">
+      <canvas id="canvasBFS"></canvas>
+    </div>
+    <div id="queue-container">
+      <div class="queue">
+        <div class="queue-title">Traversal Order:</div>
+        <div id="visitedQueue" class="queue-element"></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="dfsContent" style="display:none;">
+  <h2>DFS Traversal Visualization</h2>
+  <label for="vertexInputDFS">Enter Vertices (comma separated):</label>
+  <input type="text" id="vertexInputDFS">
+  <button onclick="createGraph('dfs')">Create Graph</button>
+  <label for="startVertexInputDFS">Select Start Vertex:</label>
+  <select id="startVertexInputDFS" onchange="resetGraph('dfs')"></select>
+  <button onclick="startDFS()">Start DFS Traversal</button>
+  <div id="container">
+    <div id="graph-container">
+      <canvas id="canvasDFS"></canvas>
+    </div>
+    <div id="stack-container">
+      <div class="stack">
+        <div class="stack-title">Traversal Order:</div>
+        <div id="visitedStack" class="stack-element"></div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  let canvasBFS = document.getElementById('canvasBFS');
+  let ctxBFS = canvasBFS.getContext('2d');
+  let canvasDFS = document.getElementById('canvasDFS');
+  let ctxDFS = canvasDFS.getContext('2d');
+  let vertices = [];
+  let adjacencyList = {};
+  let selectedVertex = null;
+  let visitedQueue = [];
+  let visitedStack = [];
+
+  function switchTraversal() {
+    let traversalType = document.getElementById('traversalType').value;
+    document.getElementById('bfsContent').style.display = traversalType === 'bfs' ? 'block' : 'none';
+    document.getElementById('dfsContent').style.display = traversalType === 'dfs' ? 'block' : 'none';
+  }
+
+  function createGraph(type) {
+    let canvas = type === 'bfs' ? canvasBFS : canvasDFS;
+    let ctx = type === 'bfs' ? ctxBFS : ctxDFS;
+    let vertexInputId = type === 'bfs' ? 'vertexInputBFS' : 'vertexInputDFS';
+    let startVertexInputId = type === 'bfs' ? 'startVertexInputBFS' : 'startVertexInputDFS';
+
+    // Reset canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // Reset adjacency list
+    adjacencyList = {};
+    
+    let input = document.getElementById(vertexInputId).value.trim();
+    vertices = input.split(',').map(v => v.trim());
+    let numVertices = vertices.length;
+    let minDimension = Math.min(window.innerWidth, window.innerHeight);
+    canvas.width = minDimension * 0.6;
+    canvas.height = minDimension * 0.6;
+    let centerX = canvas.width / 2;
+    let centerY = canvas.height / 2;
+    let radius = Math.min(canvas.width, canvas.height) / 3;
+    let angleIncrement = (2 * Math.PI) / numVertices;
+    vertices.forEach((vertex, index) => {
+      let angle = (index * angleIncrement) - (Math.PI / 2); // Starting from the top
+      let x = centerX + radius * Math.cos(angle);
+      let y = centerY + radius * Math.sin(angle);
+      adjacencyList[vertex] = { x, y, neighbors: [] };
+      drawVertex(vertex, x, y, ctx);
+    });
+    updateStartVertexDropdown(startVertexInputId);
+  }
+
+  function updateStartVertexDropdown(startVertexInputId) {
+    let startVertexInput = document.getElementById(startVertexInputId);
+    startVertexInput.innerHTML = '';
+    vertices.forEach(vertex => {
+      let option = document.createElement('option');
+      option.value = vertex;
+      option.textContent = vertex;
+      startVertexInput.appendChild(option);
+    });
+  }
+
+  function drawVertex(vertex, x, y, ctx, color = 'lightblue') {
+    ctx.beginPath();
+    ctx.arc(x, y, 20, 0, 2 * Math.PI);
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.strokeStyle = 'blue';
+    ctx.stroke();
+    ctx.fillStyle = 'black';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(vertex, x, y);
+  }
+
+  function drawArrow(start, end, ctx) {
+    let angle = Math.atan2(end.y - start.y, end.x - start.x);
+    let arrowLength = 20;
+    let arrowStartX = start.x + 20 * Math.cos(angle);
+    let arrowStartY = start.y + 20 * Math.sin(angle);
+    let arrowEndX = end.x - 20 * Math.cos(angle);
+    let arrowEndY = end.y - 20 * Math.sin(angle);
+    ctx.beginPath();
+    ctx.moveTo(arrowStartX, arrowStartY);
+    ctx.lineTo(arrowEndX, arrowEndY);
+    ctx.strokeStyle = 'black';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Arrowhead
+    ctx.save();
+    ctx.translate(arrowEndX, arrowEndY);
+    ctx.rotate(angle);
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(-arrowLength, -arrowLength / 2);
+    ctx.lineTo(-arrowLength, arrowLength / 2);
+    ctx.closePath();
+    ctx.fillStyle = 'black';
+    ctx.fill();
+    ctx.restore();
+  }
+
+  canvasBFS.addEventListener('click', function(event) {
+    handleCanvasClick(event, canvasBFS, ctxBFS);
+  });
+
+  canvasDFS.addEventListener('click', function(event) {
+    handleCanvasClick(event, canvasDFS, ctxDFS);
+  });
+
+  function handleCanvasClick(event, canvas, ctx) {
+    let rect = canvas.getBoundingClientRect();
+    let x = event.clientX - rect.left;
+    let y = event.clientY - rect.top;
+    let clickedVertex = null;
+    for (let vertex in adjacencyList) {
+      let { x: vx, y: vy } = adjacencyList[vertex];
+      let distance = Math.sqrt((x - vx) ** 2 + (y - vy) ** 2);
+      if (distance <= 20) {
+        clickedVertex = vertex;
+        break;
+      }
+    }
+    if (clickedVertex) {
+      if (selectedVertex === null) {
+        selectedVertex = clickedVertex;
+        ctx.beginPath();
+        ctx.arc(adjacencyList[selectedVertex].x, adjacencyList[selectedVertex].y, 25, 0, 2 * Math.PI);
+        ctx.strokeStyle = 'red';
+        ctx.stroke();
+      } else {
+        if (clickedVertex !== selectedVertex) {
+          adjacencyList[selectedVertex].neighbors.push(clickedVertex);
+          drawArrow(adjacencyList[selectedVertex], adjacencyList[clickedVertex], ctx);
+        }
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        vertices.forEach(vertex => {
+          drawVertex(vertex, adjacencyList[vertex].x, adjacencyList[vertex].y, ctx);
+        });
+        vertices.forEach(vertex => {
+          adjacencyList[vertex].neighbors.forEach(neighbor => {
+            drawArrow(adjacencyList[vertex], adjacencyList[neighbor], ctx);
+          });
+        });
+        selectedVertex = null;
+      }
+    }
+  }
+
+  function resetGraph(type) {
+    let canvas = type === 'bfs' ? canvasBFS : canvasDFS;
+    let ctx = type === 'bfs' ? ctxBFS : ctxDFS;
+
+    // Clear the canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Redraw the graph with original colors
+    vertices.forEach(vertex => {
+      drawVertex(vertex, adjacencyList[vertex].x, adjacencyList[vertex].y, ctx);
+    });
+    vertices.forEach(vertex => {
+      adjacencyList[vertex].neighbors.forEach(neighbor => {
+        drawArrow(adjacencyList[vertex], adjacencyList[neighbor], ctx);
+      });
+    });
+  }
+
+  function startBFS() {
+    let startVertex = document.getElementById('startVertexInputBFS').value;
+    visitedQueue = [];
+    let queue = [startVertex];
+    let visited = new Set();
+    let index = 0;
+    resetGraph('bfs');
+
+    function bfsStep() {
+      if (queue.length > 0) {
+        let current = queue.shift();
+        if (!visited.has(current)) {
+          visited.add(current);
+          visitedQueue.push(current);
+          adjacencyList[current].neighbors.forEach(neighbor => {
+            if (!visited.has(neighbor)) {
+              queue.push(neighbor);
+            }
+          });
+          displayTraversalOrder('queue', visitedQueue);
+          drawVertex(current, adjacencyList[current].x, adjacencyList[current].y, ctxBFS, 'orange');
+          setTimeout(bfsStep, 500);
+        } else {
+          bfsStep();
+        }
+      }
+    }
+    bfsStep();
+  }
+
+  function startDFS() {
+    let startVertex = document.getElementById('startVertexInputDFS').value;
+    visitedStack = [];
+    let stack = [startVertex];
+    let visited = new Set();
+    resetGraph('dfs');
+
+    function dfsStep() {
+      if (stack.length > 0) {
+        let current = stack.pop();
+        if (!visited.has(current)) {
+          visited.add(current);
+          visitedStack.push(current);
+          adjacencyList[current].neighbors.forEach(neighbor => {
+            if (!visited.has(neighbor)) {
+              stack.push(neighbor);
+            }
+          });
+          displayTraversalOrder('stack', visitedStack);
+          drawVertex(current, adjacencyList[current].x, adjacencyList[current].y, ctxDFS, 'orange');
+          setTimeout(dfsStep, 500);
+        } else {
+          dfsStep();
+        }
+      }
+    }
+    dfsStep();
+  }
+
+  function displayTraversalOrder(type, traversalOrder) {
+    let container = type === 'queue' ? document.getElementById('visitedQueue') : document.getElementById('visitedStack');
+    container.innerHTML = '';
+    traversalOrder.forEach(vertex => {
+      let span = document.createElement('span');
+      span.textContent = vertex;
+      container.appendChild(span);
+    });
+  }
+</script>
+</body>
+</html>
