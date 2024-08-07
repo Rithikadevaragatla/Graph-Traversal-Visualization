@@ -1,9 +1,4 @@
-
-![Screenshot (218)](https://github.com/user-
-
 https://github.com/user-attachments/assets/c3a40db9-4f49-4003-b93f-7b698749865d
-
-attachments/assets/1fad2d7d-f1ff-466e-861c-1cb66ae13951)
 
 # Graph-Traversal-Visualization
 This code demonstrates graph traversal  Visualization algorithms using both Breadth-First Search (BFS) and Depth-First Search (DFS).
